@@ -9,6 +9,7 @@ import tempfile
 import platform
 import subprocess
 import shutil
+import logging
 
 # Configuration for file paths
 pdf_dir = "/tmp"
@@ -85,12 +86,17 @@ def replace_placeholder(paragraph, placeholder, value):
     
     return True
 
+
+
+logging.basicConfig(level=logging.DEBUG)
+
 def process_document(doc, placeholders):
     """Process the document to replace placeholders while preserving images and formatting."""
     for paragraph in doc.paragraphs:
         # Skip paragraphs that contain images or other inline shapes
-        if paragraph._element.xpath('.//w:drawing'):  # Check for images/inline shapes
-            continue  # Skip this paragraph to preserve images
+        if paragraph._element.xpath('.//w:drawing'):
+            logging.debug("Skipping paragraph with image")
+            continue
 
         if not paragraph.text:
             continue
@@ -110,6 +116,7 @@ def process_document(doc, placeholders):
                             for nested_cell in nested_row.cells:
                                 # Skip cells with images
                                 if nested_cell._element.xpath('.//w:drawing'):
+                                    logging.debug("Skipping nested cell with image")
                                     continue
                                 for para in nested_cell.paragraphs:
                                     if not para.text:
@@ -120,6 +127,7 @@ def process_document(doc, placeholders):
                 for para in cell.paragraphs:
                     # Skip paragraphs with images
                     if para._element.xpath('.//w:drawing'):
+                        logging.debug("Skipping cell paragraph with image")
                         continue
                     if not para.text:
                         continue
