@@ -1,0 +1,8 @@
+streamlit
+python-docx
+Pillow
+PyPDF2
+pymupdf
+fpdf
+comtypes; platform_system == "Windows"
+pythoncom; platform_system == "Windows"
