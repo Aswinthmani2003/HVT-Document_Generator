@@ -189,16 +189,13 @@ def convert_to_pdf(doc_path, pdf_path):
 def generate_document():
     st.title("Document Generator")
 
-    # Ensure templates are in the same directory as the app
-    base_dir = os.path.abspath(os.path.dirname(__file__))  # Get directory of the app
-    TEMPLATES_DIR = base_dir  # Templates are in the same directory as the app
-
+    
     # Get user selection **before** accessing config
     selected_proposal = st.selectbox("Select Document Type", list(PROPOSAL_CONFIG.keys()))
     config = PROPOSAL_CONFIG[selected_proposal]  # Now, config is correctly assigned
 
     # Now safely access config["template"]
-    template_path = os.path.join(TEMPLATES_DIR, config["template"])
+    template_path = config["template"]
 
     if not os.path.exists(template_path):
         st.error(f"Template file not found: {template_path}")
@@ -270,18 +267,15 @@ def generate_document():
         pdf_filename = f"{base_name}.pdf"
 
         try:
-            # Use persistent directory inside container
-            temp_dir = "/tmp"
-            os.makedirs(temp_dir, exist_ok=True)
 
             # Process Word document
             doc = Document(template_path)
             doc = process_document(doc, placeholders)
-            doc_path = os.path.join(temp_dir, doc_filename)
+            doc_path = f"{base_name}.docx"
             doc.save(doc_path)
 
             # Convert to PDF with retries
-            pdf_path = os.path.join(temp_dir, pdf_filename)
+            pdf_path = doc_path.replace(".docx", ".pdf")
             convert_to_pdf(doc_path, pdf_path)
 
             # Verify PDF file exists before storing
