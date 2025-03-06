@@ -114,7 +114,6 @@ def process_document(doc, placeholders):
     return doc
 
 def get_hvt_ai_team_details():
-    """Collect team composition details for HVT AI proposal."""
     st.subheader("Team Composition")
     team_roles = {
         "Project Manager": "P1",
@@ -141,15 +140,15 @@ def get_hvt_ai_team_details():
     return team_details
 
 def validate_phone_number(country, number):
-    """Validate phone number based on the country."""
     if not number:
         return True
     if country.lower() == "india":
         return number.startswith("+91")
     return number.startswith("+1")
 
+
 def convert_to_pdf(doc_path, pdf_path):
-    """Convert a Word document to a flattened PDF."""
+    """Converts a Word document to a flattened PDF."""
     doc_path = os.path.abspath(doc_path)
     pdf_path = os.path.abspath(pdf_path)
 
@@ -157,7 +156,8 @@ def convert_to_pdf(doc_path, pdf_path):
         raise FileNotFoundError(f"Word document not found: {doc_path}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_pdf_path = os.path.join(temp_dir, "temp_output.pdf")
+        # LibreOffice automatically generates a PDF with the same name as the input file
+        expected_pdf_path = os.path.join(temp_dir, os.path.basename(doc_path).replace('.docx', '.pdf'))
 
         if platform.system() == "Windows":
             try:
@@ -167,14 +167,15 @@ def convert_to_pdf(doc_path, pdf_path):
                 word = comtypes.client.CreateObject("Word.Application")
                 word.Visible = False
                 doc = word.Documents.Open(doc_path)
-                doc.SaveAs(temp_pdf_path, FileFormat=17)  # FileFormat=17 is for PDF
+                doc.SaveAs(expected_pdf_path, FileFormat=17)
                 doc.Close()
                 word.Quit()
                 pythoncom.CoUninitialize()
 
-                if not os.path.exists(temp_pdf_path):
-                    raise FileNotFoundError(f"PDF conversion failed.")
-                shutil.move(temp_pdf_path, pdf_path)
+                if not os.path.exists(expected_pdf_path):
+                    raise FileNotFoundError("PDF conversion failed.")
+
+                shutil.move(expected_pdf_path, pdf_path)
 
             except Exception as e:
                 raise Exception(f"Error in Windows Word to PDF conversion: {e}")
@@ -185,15 +186,25 @@ def convert_to_pdf(doc_path, pdf_path):
                     ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, doc_path],
                     check=True
                 )
-                if not os.path.exists(temp_pdf_path):
-                    raise Exception("LibreOffice PDF conversion failed")
-                shutil.move(temp_pdf_path, pdf_path)
+
+                # Find the actual PDF file
+                generated_files = os.listdir(temp_dir)
+                pdf_files = [f for f in generated_files if f.endswith('.pdf')]
+
+                if not pdf_files:
+                    raise FileNotFoundError("LibreOffice PDF conversion failed: No PDF file generated.")
+
+                generated_pdf_path = os.path.join(temp_dir, pdf_files[0])  # Pick the first PDF file
+
+                shutil.move(generated_pdf_path, pdf_path)
+
             except subprocess.CalledProcessError as e:
                 raise Exception(f"Error in LibreOffice conversion: {e}")
 
 def generate_document():
     st.title("Document Generator")
 
+    
     # Get user selection **before** accessing config
     selected_proposal = st.selectbox("Select Document Type", list(PROPOSAL_CONFIG.keys()))
     config = PROPOSAL_CONFIG[selected_proposal]  # Now, config is correctly assigned
@@ -271,6 +282,7 @@ def generate_document():
         pdf_filename = f"{base_name}.pdf"
 
         try:
+
             # Process Word document
             doc = Document(template_path)
             doc = process_document(doc, placeholders)
