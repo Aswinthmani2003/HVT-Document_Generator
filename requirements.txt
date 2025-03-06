@@ -1,5 +1,5 @@
 streamlit
-python-docx
+python-docx==0.8.11
 Pillow
 PyPDF2
 pymupdf
