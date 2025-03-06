@@ -86,26 +86,41 @@ def replace_placeholder(paragraph, placeholder, value):
     return True
 
 def process_document(doc, placeholders):
-    """Process the document to replace placeholders while preserving formatting."""
+    """Process the document to replace placeholders while preserving images and formatting."""
     for paragraph in doc.paragraphs:
+        # Skip paragraphs that contain images or other inline shapes
+        if paragraph._element.xpath('.//w:drawing'):  # Check for images/inline shapes
+            continue  # Skip this paragraph to preserve images
+
         if not paragraph.text:
             continue
+
+        # Replace placeholders in the paragraph text
         for ph, value in placeholders.items():
             replace_placeholder(paragraph, ph, value)
 
+    # Process tables while preserving images
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
+                # Handle nested tables first
                 if cell.tables:
                     for nested_table in cell.tables:
                         for nested_row in nested_table.rows:
                             for nested_cell in nested_row.cells:
+                                # Skip cells with images
+                                if nested_cell._element.xpath('.//w:drawing'):
+                                    continue
                                 for para in nested_cell.paragraphs:
                                     if not para.text:
                                         continue
                                     for ph, value in placeholders.items():
                                         replace_placeholder(para, ph, value)
+                # Handle cell paragraphs
                 for para in cell.paragraphs:
+                    # Skip paragraphs with images
+                    if para._element.xpath('.//w:drawing'):
+                        continue
                     if not para.text:
                         continue
                     for ph, value in placeholders.items():
