@@ -86,14 +86,11 @@ def replace_placeholder(paragraph, placeholder, value):
     
     return True
 
-
-
 logging.basicConfig(level=logging.DEBUG)
 
 def process_document(doc, placeholders):
     """Process the document to replace placeholders while preserving images and formatting."""
     for paragraph in doc.paragraphs:
-        # Skip paragraphs that contain images or other inline shapes
         if paragraph._element.xpath('.//w:drawing'):
             logging.debug("Skipping paragraph with image")
             continue
@@ -101,20 +98,16 @@ def process_document(doc, placeholders):
         if not paragraph.text:
             continue
 
-        # Replace placeholders in the paragraph text
         for ph, value in placeholders.items():
             replace_placeholder(paragraph, ph, value)
 
-    # Process tables while preserving images
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                # Handle nested tables first
                 if cell.tables:
                     for nested_table in cell.tables:
                         for nested_row in nested_table.rows:
                             for nested_cell in nested_row.cells:
-                                # Skip cells with images
                                 if nested_cell._element.xpath('.//w:drawing'):
                                     logging.debug("Skipping nested cell with image")
                                     continue
@@ -123,9 +116,7 @@ def process_document(doc, placeholders):
                                         continue
                                     for ph, value in placeholders.items():
                                         replace_placeholder(para, ph, value)
-                # Handle cell paragraphs
                 for para in cell.paragraphs:
-                    # Skip paragraphs with images
                     if para._element.xpath('.//w:drawing'):
                         logging.debug("Skipping cell paragraph with image")
                         continue
@@ -169,7 +160,6 @@ def validate_phone_number(country, number):
         return number.startswith("+91")
     return number.startswith("+1")
 
-
 def convert_to_pdf(doc_path, pdf_path):
     """Converts a Word document to a flattened PDF."""
     doc_path = os.path.abspath(doc_path)
@@ -179,7 +169,6 @@ def convert_to_pdf(doc_path, pdf_path):
         raise FileNotFoundError(f"Word document not found: {doc_path}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        # LibreOffice automatically generates a PDF with the same name as the input file
         expected_pdf_path = os.path.join(temp_dir, os.path.basename(doc_path).replace('.docx', '.pdf'))
 
         if platform.system() == "Windows":
@@ -210,15 +199,13 @@ def convert_to_pdf(doc_path, pdf_path):
                     check=True
                 )
 
-                # Find the actual PDF file
                 generated_files = os.listdir(temp_dir)
                 pdf_files = [f for f in generated_files if f.endswith('.pdf')]
 
                 if not pdf_files:
                     raise FileNotFoundError("LibreOffice PDF conversion failed: No PDF file generated.")
 
-                generated_pdf_path = os.path.join(temp_dir, pdf_files[0])  # Pick the first PDF file
-
+                generated_pdf_path = os.path.join(temp_dir, pdf_files[0])
                 shutil.move(generated_pdf_path, pdf_path)
 
             except subprocess.CalledProcessError as e:
@@ -227,12 +214,9 @@ def convert_to_pdf(doc_path, pdf_path):
 def generate_document():
     st.title("Document Generator")
 
-    
-    # Get user selection **before** accessing config
     selected_proposal = st.selectbox("Select Document Type", list(PROPOSAL_CONFIG.keys()))
-    config = PROPOSAL_CONFIG[selected_proposal]  # Now, config is correctly assigned
+    config = PROPOSAL_CONFIG[selected_proposal]
 
-    # Now safely access config["template"]
     template_path = config["template"]
 
     if not os.path.exists(template_path):
@@ -245,14 +229,17 @@ def generate_document():
     placeholders = {}
     if selected_proposal == "Internship Offer Letter":
         st.subheader("Candidate Information")
-        placeholders.update({
-            "<<E-Name>>": st.text_input("Candidate Name:"),
-            "<<Job>>": st.selectbox("Job Role", ["UI UX", "AI Automations", "Software Developer", "Sales"]),
-            "<<S-Date>>": st.date_input("Start Date").strftime("%d %B, %Y"),
-            "<<Stipend>>": f"{st.number_input('Stipend (₹)', min_value=0):,}",
-            "<<Months>>": st.number_input("Duration (Months)", min_value=1),
-            "<<Date>>": datetime.today().strftime("%d %B, %Y")
-        })
+        col1, col2 = st.columns(2)
+        with col1:
+            placeholders["<<E-Name>>"] = st.text_input("Candidate Name:")
+            placeholders["<<Job>>"] = st.selectbox("Job Role", ["UI UX", "AI Automations", "Software Developer", "Sales"])
+            placeholders["<<S-Date>>"] = st.date_input("Internship Start Date").strftime("%d %B, %Y")
+        with col2:
+            placeholders["<<Stipend>>"] = f"{st.number_input('Stipend (₹)', min_value=0):,}"
+            placeholders["<<Months>>"] = st.number_input("Duration (Months)", min_value=1)
+            placeholders["<<S-date>>"] = st.date_input("First Pay Cheque Date").strftime("%d %B, %Y")
+        
+        placeholders["<<Date>>"] = datetime.today().strftime("%d %B, %Y")
     else:
         st.subheader("Client Details")
         col1, col2 = st.columns(2)
@@ -305,22 +292,17 @@ def generate_document():
         pdf_filename = f"{base_name}.pdf"
 
         try:
-
-            # Process Word document
             doc = Document(template_path)
             doc = process_document(doc, placeholders)
             doc_path = f"{base_name}.docx"
             doc.save(doc_path)
 
-            # Convert to PDF with retries
             pdf_path = doc_path.replace(".docx", ".pdf")
             convert_to_pdf(doc_path, pdf_path)
 
-            # Verify PDF file exists before storing
             if not os.path.exists(pdf_path):
                 raise FileNotFoundError(f"PDF file not found at: {pdf_path}")
 
-            # Store in session state
             with open(doc_path, "rb") as f:
                 st.session_state.generated_files['doc'] = f.read()
             with open(pdf_path, "rb") as f:
@@ -334,24 +316,18 @@ def generate_document():
             st.error(f"Generation failed: {str(e)}")
 
     if 'doc' in st.session_state.generated_files:
-        st.markdown("---")
-        st.subheader("Download Documents")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.download_button(
-                label="Download Word Document",
-                data=st.session_state.generated_files['doc'],
-                file_name=st.session_state.generated_files['doc_name'],
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-        with col2:
-            st.download_button(
-                label="Download PDF Document",
-                data=st.session_state.generated_files['pdf'],
-                file_name=st.session_state.generated_files['pdf_name'],
-                mime="application/pdf"
-            )
+        st.download_button(
+            label="Download Word Document",
+            data=st.session_state.generated_files['doc'],
+            file_name=st.session_state.generated_files['doc_name'],
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        st.download_button(
+            label="Download PDF Document",
+            data=st.session_state.generated_files['pdf'],
+            file_name=st.session_state.generated_files['pdf_name'],
+            mime="application/pdf"
+        )
 
 def main():
     generate_document()
